@@ -68,7 +68,7 @@ def handle_exception(loop, context, service):
         return
 
     logger.info("Shutting down...")
-    aio.create_task(shutdown(loop, service))
+    aio.create_task(aio.shield(shutdown(loop, service)))
 
 
 def main():
@@ -105,7 +105,9 @@ def main():
     for sig in signals:
         loop.add_signal_handler(
             sig,
-            lambda s=sig: aio.create_task(shutdown(loop, service, s)),
+            lambda s=sig: aio.create_task(
+                aio.shield(shutdown(loop, service, s)),
+            ),
         )
     loop.set_exception_handler(
         lambda *args: handle_exception(*args, service=service),
