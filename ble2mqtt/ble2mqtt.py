@@ -3,6 +3,7 @@ import json
 import logging
 import typing as ty
 from contextlib import asynccontextmanager
+from pprint import pformat
 from uuid import getnode
 
 import aio_mqtt
@@ -367,11 +368,14 @@ class DeviceManager:
         failure_count = 0
         missing_device_count = 0
         while True:
+            logger.info(f'{device} start managing task')
             async with BLUETOOTH_RESTARTING:
                 logger.debug(f'[{device}] Check for lock')
             try:
                 async with handle_ble_exceptions():
                     await device.connect()
+                    if not device.is_passive:
+                        logger.info(f'{device} connected')
                     initial_coros = []
                     if not device.is_passive:
                         if not device.DEVICE_DROPS_CONNECTION:
@@ -409,7 +413,17 @@ class DeviceManager:
                     if device.disconnected_event.is_set():
                         logger.debug(f'{device} has disconnected')
                     finished = [t for t in tasks if not t.cancelled()]
-                    await handle_returned_tasks(*finished)
+                    logger.info(
+                        f"{device} Manager.manage_device(): before exit: "
+                        f"{pformat(tasks)}\n\n"
+                        f"Finished: {pformat(finished)}\n\n"
+                        f"Other: {pformat(list(set(tasks) - set(finished)))}")
+                    try:
+                        await handle_returned_tasks(*finished)
+                    finally:
+                        logger.info(
+                            f"{device} Manager.manage_device(): after exit"
+                            f"{pformat(tasks)}\n\n")
             except aio.CancelledError:
                 raise
             except KeyboardInterrupt:
@@ -676,6 +690,11 @@ class Ble2Mqtt:
             *futs,
             ignore_futures=[mqtt_connection_fut],
         )
+        logger.info(
+            f"_run_device_tasks: stop waiting tasks:\n"
+            f"finished={finished},\n"
+            f"all={futs}",
+        )
 
         finished_managers = []
         for d, m in self._device_managers.items():
@@ -690,7 +709,17 @@ class Ble2Mqtt:
         # when mqtt server disconnects, multiple tasks can raise
         # exceptions. We must fetch all of them
         finished = [t for t in futs if t.done() and not t.cancelled()]
-        await handle_returned_tasks(*finished)
+        logger.info(
+            f"_run_device_tasks: before exit: "
+            f"{pformat(futs)}\n\n"
+            f"Finished: {pformat(finished)}\n\n"
+            f"Other: {pformat(list(set(futs) - set(finished)))}")
+        try:
+            await handle_returned_tasks(*finished)
+        finally:
+            logger.info(
+                f"_run_device_tasks: after exit: "
+                f"{pformat(futs)}\n\n")
 
     async def _connect_forever(self) -> None:
         dev_id = hex(getnode())
