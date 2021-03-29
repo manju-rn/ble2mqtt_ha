@@ -8,6 +8,7 @@ from enum import Enum
 
 from ..devices.base import BaseDevice
 from .base import BaseCommand, BLEQueueMixin, SendAndWaitReplyMixin
+from ..utils import format_binary
 
 logger = logging.getLogger(__name__)
 
@@ -156,8 +157,8 @@ class RedmondKettle200Protocol(SendAndWaitReplyMixin, BLEQueueMixin,
         cmd = self._get_command(command.cmd.value, command.payload)
         logger.debug(
             f'... send cmd {command.cmd.value:04x} ['
-            f'{"".join(format(x, "02x") for x in command.payload)}] '
-            f'{" ".join(format(x, "02x") for x in cmd)}',
+            f'{format_binary(command.payload, delimiter="")}] '
+            f'{format_binary(cmd)}',
         )
         self.clear_ble_queue()
         cmd_resp = await aio.wait_for(

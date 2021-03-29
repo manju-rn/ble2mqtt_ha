@@ -6,6 +6,7 @@ from bleak.backends.device import BLEDevice
 
 from .uuids import BATTERY
 from .xiaomi_base import XiaomiHumidityTemperature
+from ..utils import format_binary
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +75,7 @@ class XiaomiHumidityTemperatureV1(XiaomiHumidityTemperature):
                 self._state.temperature = from_word(adv_data[14:16])
                 self._state.humidity = from_word(adv_data[16:18])
 
-            data_formatted = ' '.join(format(x, '02x') for x in adv_data)
             logger.debug(
-                f'Advert received for {self}, {data_formatted}, '
+                f'Advert received for {self}, {format_binary(adv_data)}, '
                 f'current state: {self._state}',
             )
